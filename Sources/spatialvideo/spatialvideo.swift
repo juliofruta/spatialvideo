@@ -88,7 +88,6 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
                 ]
         
                 let queue = DispatchQueue(label: "Multiview HEVC Writer")
-                let audioInputQueue = DispatchQueue(label: "audioQueue")
                 
                 let audioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: nil)
                 audioInput.expectsMediaDataInRealTime = false
@@ -109,7 +108,7 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
                 // Create metadata items for additional metadata
                 let metadataItems: [AVMutableMetadataItem] = [
                     createMetadataItem(key: "com.apple.quicktime.spatial.format-version", value: "1.0"),
-                    createMetadataItem(key: "com.apple.quicktime.spatial.aggressors-seen", value: "0"),
+                    createMetadataItem(key: "com.apple.quicktime.spatial.aggressors-seen", value: "0")
                 ]
 
                 // Append metadata items to the output file
@@ -138,6 +137,31 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
                 }
                 multiviewWriter.add(audioInput)
                 
+//                let metadataInput = AVAssetWriterInput(mediaType: .depthData, outputSettings: nil)
+//                if multiviewWriter.canAdd(metadataInput) {
+//                    multiviewWriter.add(metadataInput)
+//                    let depthMetadataItem = AVTimedMetadataGroup(
+//                        items: [.init()],
+//                        timeRange: CMTimeRange(
+//                            start: CMTime.zero,
+//                            duration: CMTime(seconds: 1, preferredTimescale: 1000)
+//                        )
+//                    )
+//                    
+//                    metadataInput.append(
+//                        .init(
+//                            taggedBuffers: [],
+//                            presentationTimeStamp: .zero,
+//                            duration: .zero,
+//                            formatDescription: try CMTaggedBufferGroupFormatDescription(
+//                                mediaType: .video, 
+//                                mediaSubType: .mpeg4AAC_Spatial
+//                            )
+//                        )
+//                    )
+//                    metadataInput.markAsFinished()
+//                }
+//                
                 guard multiviewWriter.startWriting() else {
                     throw Error.failedToStartWritingMultiviewOutputFile
                 }
@@ -204,7 +228,6 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
                         }
                     }
                 }
-                
             }
         }
     }
