@@ -12,6 +12,7 @@ enum Error: Swift.Error {
     case unknownError
     case applyingOutputSettings
     case addingSideBySideVideoFramesAsInput
+    case addingAudioAsInput
     case failedToStartWritingMultiviewOutputFile
     case failedToCreatePixelTransfer
     
@@ -29,6 +30,9 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
     guard let sideToSideVideoTrack = try await sideToSideVideoAsset.loadTracks(withMediaCharacteristic: .visual).first else {
         throw Error.errorLoadingSideBySeideVideoInput
     }
+    guard let audioTrack = try await sideToSideVideoAsset.loadTracks(withMediaType: .audio).first else {
+        throw NSError(domain: "Video does not contain audio track", code: 0, userInfo: nil)
+    }
     let sideBySideFrameSize = try await sideToSideVideoTrack.load(.naturalSize)
     let eyeFrameSize = CGSize(width: sideBySideFrameSize.width / 2, height: sideBySideFrameSize.height)
     let readerSettings: [String: Any] = [
@@ -39,6 +43,11 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
     if sideToSideVideoReader.canAdd(sideBySideTrack) {
         sideToSideVideoReader.add(sideBySideTrack)
     }
+    let audioTrackOutput = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: nil)
+    if sideToSideVideoReader.canAdd(audioTrackOutput) {
+        sideToSideVideoReader.add(audioTrackOutput)
+    }
+    
     if !sideToSideVideoReader.startReading() {
         throw sideToSideVideoReader.error ?? Error.unknownError
     }
@@ -50,9 +59,9 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
     await transcodeToMVHEVC(output: spatialVideoURL)
    
     // Now work with audio
-    let audio = try await extractAudio(from: sideToSideVideoURL)
-    let merge = try await merge(videoUrl: spatialVideoURL, with: audio)
-    return merge
+//    let audio = try await extractAudio(from: sideToSideVideoURL)
+//    let merge = try await merge(videoUrl: spatialVideoURL, with: audio)
+    return spatialVideoURL//merge
     
     /// Transcodes  side-by-side HEVC media to MV-HEVC.
     /// - Parameter output: The output URL to write the MV-HEVC file to.
@@ -78,6 +87,12 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
                     AVVideoCompressionPropertiesKey: multiviewCompressionProperties,
                 ]
         
+                let queue = DispatchQueue(label: "Multiview HEVC Writer")
+                let audioInputQueue = DispatchQueue(label: "audioQueue")
+                
+                let audioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: nil)
+                audioInput.expectsMediaDataInRealTime = false
+                
                 guard multiviewWriter.canApply(outputSettings: multiviewSettings, forMediaType: AVMediaType.video) else {
                     throw Error.applyingOutputSettings
                 }
@@ -117,14 +132,30 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
                     throw Error.addingSideBySideVideoFramesAsInput
                 }
                 multiviewWriter.add(frameInput)
-
+                
+                guard multiviewWriter.canAdd(audioInput) else {
+                    throw Error.addingAudioAsInput
+                }
+                multiviewWriter.add(audioInput)
+                
                 guard multiviewWriter.startWriting() else {
                     throw Error.failedToStartWritingMultiviewOutputFile
                 }
                 multiviewWriter.startSession(atSourceTime: CMTime.zero)
 
+                audioInput.requestMediaDataWhenReady(on: queue) {
+                    while audioInput.isReadyForMoreMediaData {
+                        guard let sampleBuffer = audioTrackOutput.copyNextSampleBuffer() else {
+                            audioInput.markAsFinished()
+                            break
+                        }
+                        
+                        audioInput.append(sampleBuffer)
+                    }
+                }
+                
                 // The dispatch queue executes the closure when media reads from the input file are available.
-                frameInput.requestMediaDataWhenReady(on: DispatchQueue(label: "Multiview HEVC Writer")) {
+                frameInput.requestMediaDataWhenReady(on: queue) {
                     var session: VTPixelTransferSession? = nil
                     guard VTPixelTransferSessionCreate(allocator: kCFAllocatorDefault, pixelTransferSessionOut: &session) == noErr, let session else {
                         fatalError("Failed to create pixel transfer")
@@ -164,6 +195,7 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
                             }
                         } else {
                             frameInput.markAsFinished()
+                            // Continue
                             multiviewWriter.finishWriting {
                                 continuation.resume()
                             }
@@ -172,6 +204,7 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
                         }
                     }
                 }
+                
             }
         }
     }
