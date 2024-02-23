@@ -136,32 +136,7 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
                     throw Error.addingAudioAsInput
                 }
                 multiviewWriter.add(audioInput)
-                
-//                let metadataInput = AVAssetWriterInput(mediaType: .depthData, outputSettings: nil)
-//                if multiviewWriter.canAdd(metadataInput) {
-//                    multiviewWriter.add(metadataInput)
-//                    let depthMetadataItem = AVTimedMetadataGroup(
-//                        items: [.init()],
-//                        timeRange: CMTimeRange(
-//                            start: CMTime.zero,
-//                            duration: CMTime(seconds: 1, preferredTimescale: 1000)
-//                        )
-//                    )
-//                    
-//                    metadataInput.append(
-//                        .init(
-//                            taggedBuffers: [],
-//                            presentationTimeStamp: .zero,
-//                            duration: .zero,
-//                            formatDescription: try CMTaggedBufferGroupFormatDescription(
-//                                mediaType: .video, 
-//                                mediaSubType: .mpeg4AAC_Spatial
-//                            )
-//                        )
-//                    )
-//                    metadataInput.markAsFinished()
-//                }
-//                
+                  
                 guard multiviewWriter.startWriting() else {
                     throw Error.failedToStartWritingMultiviewOutputFile
                 }
