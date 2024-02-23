@@ -48,7 +48,11 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
         try FileManager.default.removeItem(at: spatialVideoURL)
     }
     await transcodeToMVHEVC(output: spatialVideoURL)
-    return spatialVideoURL
+   
+    // Now work with audio
+    let audio = try await extractAudio(from: sideToSideVideoURL)
+    let merge = try await merge(videoUrl: spatialVideoURL, with: audio)
+    return merge
     
     /// Transcodes  side-by-side HEVC media to MV-HEVC.
     /// - Parameter output: The output URL to write the MV-HEVC file to.
@@ -227,3 +231,5 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
         return taggedBuffers
     }
 }
+
+
