@@ -227,13 +227,23 @@ public func spatialVideo(from sideToSideVideoURL: URL) async throws -> URL {
 
             // Crop the transfer region to the current eye.
             let apertureOffset = -(eyeFrameSize.width / 2) + CGFloat(layerID) * eyeFrameSize.width
-            let cropRectDict = [kCVImageBufferCleanApertureHorizontalOffsetKey: apertureOffset,
-                                  kCVImageBufferCleanApertureVerticalOffsetKey: 0,
-                                           kCVImageBufferCleanApertureWidthKey: eyeFrameSize.width,
-                                          kCVImageBufferCleanApertureHeightKey: eyeFrameSize.height
+            let cropRectDict = [
+                kCVImageBufferCleanApertureHorizontalOffsetKey: apertureOffset,
+                kCVImageBufferCleanApertureVerticalOffsetKey: 0,
+                kCVImageBufferCleanApertureWidthKey: eyeFrameSize.width,
+                kCVImageBufferCleanApertureHeightKey: eyeFrameSize.height
             ]
-            CVBufferSetAttachment(imageBuffer, kCVImageBufferCleanApertureKey, cropRectDict as CFDictionary, CVAttachmentMode.shouldPropagate)
-            VTSessionSetProperty(session, key: kVTPixelTransferPropertyKey_ScalingMode, value: kVTScalingMode_CropSourceToCleanAperture)
+            CVBufferSetAttachment(
+                imageBuffer,
+                kCVImageBufferCleanApertureKey,
+                cropRectDict as CFDictionary,
+                CVAttachmentMode.shouldPropagate
+            )
+            VTSessionSetProperty(
+                session,
+                key: kVTPixelTransferPropertyKey_ScalingMode,
+                value: kVTScalingMode_CropSourceToCleanAperture
+            )
 
             // Transfer the image to the pixel buffer.
             guard VTPixelTransferSessionTransferImage(session, from: imageBuffer, to: pixelBuffer) == noErr else {
